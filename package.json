@@ -1,0 +1,34 @@
+{
+  "dependencies": {
+    "@types/node": "^18.7.13",
+    "apollo-server-micro": "^2.11.0",
+    "date-fns": "^2.11.0",
+    "global": "^4.4.0",
+    "graphql": "^14.7.0",
+    "graphql-scalars": "^1.18.0",
+    "graphql-subscriptions": "^2.0.0",
+    "graphql-tools": "^8.3.3",
+    "graphql-ws": "^5.10.1",
+    "micro": "^9.4.1",
+    "sqlite": "^4.1.2",
+    "sqlite3": "^5.0.11"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "2.11.0",
+    "@graphql-codegen/introspection": "2.2.0",
+    "@graphql-codegen/typescript": "2.7.2",
+    "@graphql-codegen/typescript-resolvers": "2.7.2",
+    "@types/micro-cors": "^0.1.2",
+    "micro-cors": "^0.1.1",
+    "microrouter": "^3.1.3",
+    "nodemon": "^2.0.19",
+    "typescript": "^4.7.4"
+  },
+  "scripts": {
+    "generate": "graphql-codegen --config codegen.yml",
+    "dev": "yarn generate && ts-node ./server.ts"
+  },
+  "license": "WTFPL",
+  "version": "0.0.0",
+  "author": {"name": "TaYaKi71751","url": "https://github.com/TaYaKi71751"}
+}

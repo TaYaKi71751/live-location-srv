@@ -10,6 +10,7 @@
     "graphql-tools": "^8.3.3",
     "graphql-ws": "^5.10.1",
     "micro": "^9.4.1",
+    "node-rsa": "^1.1.1",
     "sqlite": "^4.1.2",
     "sqlite3": "^5.0.11"
   },
@@ -30,5 +31,8 @@
   },
   "license": "WTFPL",
   "version": "0.0.0",
-  "author": {"name": "TaYaKi71751","url": "https://github.com/TaYaKi71751"}
+  "author": {
+    "name": "TaYaKi71751",
+    "url": "https://github.com/TaYaKi71751"
+  }
 }

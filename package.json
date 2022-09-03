@@ -6,11 +6,11 @@
     "global": "^4.4.0",
     "graphql": "^14.7.0",
     "graphql-scalars": "^1.18.0",
-    "graphql-subscriptions": "^2.0.0",
     "graphql-tools": "^8.3.3",
-    "graphql-ws": "^5.10.1",
     "micro": "^9.4.1",
     "node-rsa": "^1.1.1",
+    "socket.io": "^4.5.1",
+    "socket.io-client": "^4.5.1",
     "sqlite": "^4.1.2",
     "sqlite3": "^5.0.11"
   },

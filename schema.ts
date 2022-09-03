@@ -1,6 +1,16 @@
 import { gql } from 'apollo-server-micro';
 
 export const schema = gql`
+input LocationInput {
+	latitude: Float!
+	longitude: Float!
+	accuracy: Float!
+	altitude: Float
+	altitudeAccuracy: Float
+	heading: Float
+	speed: Float
+}
+
 input DeviceInput {
 	id: ID!
 }
@@ -15,15 +25,16 @@ type Device {
 
 type Location {
 	id: ID
-	latitude: Float!
-	longitude: Float!
-	accuracy: Float!
+	latitude: Float
+	longitude: Float
+	accuracy: Float
 	altitude: Float
-	altitudeAccuracy: Float
+	altitude_accuracy: Float
 	heading: Float
 	speed: Float
-	created_at: ID!
+	created_at: ID
 }
+
 type LocationAlert {
 	user: User
 	device: Device
@@ -34,11 +45,9 @@ type LocationAlert {
 type Query {
 	addDevice: Device
 	deactivateDevice(device:DeviceInput): Device
+	updateLocation(location:LocationInput): Location
 }
 
-type Subscription {
-	locationUpdated(device:DeviceInput): LocationAlert
-}
 `;
 
 export default schema;

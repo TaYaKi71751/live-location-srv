@@ -29,8 +29,8 @@ const Values = function(){};
 Values.prototype.toString = function(): string {
 	const _ = Object.entries(this)
 		.filter(([k,v])=>(typeof k != 'undefined' && typeof v != 'undefined'));
-	if(_.length) { return ''; }
-	const _keys = _.map(([k,v])=>(js(k)));
+	if(!_.length) { return ''; }
+	const _keys = _.map(([k,v])=>(k));
 	const _values = _.map(([k,v])=>(v));
 	const __ = `( ${_keys.join(',')} ) VALUES ( ${_values.join(',')} )`;
 	return __ || '';
@@ -39,7 +39,7 @@ Values.prototype.toString = function(): string {
 export const Query = {
 	async getUsers (_parent: any,input:{email?:string,created_at?:number|string,deactivated?:boolean},{getDB}: any) {
 		const where:{[x:string]:any} = new Where();
-		if(!input?.email) { return; } else { where['USER_EMAIL'] = input.email; }
+		if(!input?.email) { return; } else { where['USER_EMAIL'] = js(input.email); }
 		if(typeof input?.deactivated == 'undefined') {  } else { where['USER_DEACTIVATED'] = Boolean(input.deactivated); }
 
 		const db = await getDB();
@@ -89,9 +89,9 @@ export const Query = {
 	},
 	async addUser (_parent: any,input:{email:string},{getDB}: any) {
 		const $getUsers$1 = await this.getUsers(_parent,{email:input.email,deactivated:false},{getDB});
-		if($getUsers$1.error) { return $getUsers$1; }
-		if(typeof ($getUsers$1?.data?.users?.length) == 'undefined') { return; }
-
+		if($getUsers$1.errors) { return {errors:[...($getUsers$1.errors||[]),new ValidationError(`Error occurred with addUser`)]}; }
+		if(typeof ($getUsers$1?.data?.users?.length) == 'undefined') { return {errors:[new ValidationError(`Error occurred with addUser`)]}; }
+		if($getUsers$1?.data?.users?.length){return {errors:[new ForbiddenError(`Account Already Exists`)]}}
 		const db = await getDB();
 
 		let created_at:any = null;
@@ -123,25 +123,29 @@ export const Query = {
 		await db.run(add_user_auth());
 		return { data:{ user:{ auth:{ created_at } } }};
 	},
-	async register (_parent: any,input:{email:string,password:string},{getDB}: any) {
+	async register (_parent: any,input:{email:string,password:string},{getDB,Query}) {
 		if(!input.email || !input.password) { return; }
-		const $getUsers$1 = await this.getUsers(_parent,{email:js(input.email),deactivated:false},{getDB});
-		if(typeof ($getUsers$1?.data?.users?.length) != 'undefined') { return { errors: [...($getUsers$1?.errors||[]),new ForbiddenError(`Account already exists`)] }; }
-		const $addUser$1 = await this.addUser(_parent,{email:js(input.email)},{getDB});
+		const $getUsers$1 = await Query.getUsers(_parent,{email:input.email,deactivated:false},{getDB});
+		if(
+			typeof ($getUsers$1?.data?.users?.length) != 'undefined' &&
+			$getUsers$1?.data?.users?.length
+		) { return { errors: [...($getUsers$1?.errors||[]),new ForbiddenError(`Account already exists`)] }; }
+		const $addUser$1 = await Query.addUser(_parent,{email:input.email},{getDB});
 		if(typeof ($addUser$1?.data?.user?.created_at) == 'undefined') { return {errors:[...($addUser$1?.errors||[]),new ValidationError(`Error occured with $addUser$1`)]}; }
-		const $getUsers$2 = await this.getUsers(_parent,{deactivated:false,created_at:$addUser$1?.data?.user?.created_at,email:js(input.email)},{getDB});
+		const $getUsers$2 = await Query.getUsers(_parent,{deactivated:false,created_at:$addUser$1?.data?.user?.created_at,email:input.email},{getDB});
 		if(typeof ($getUsers$2?.data?.users?.length) == 'undefined') { return {errors:[...($getUsers$2?.errors||[]),new ValidationError(`Error occured with $getUsers$2`)]}; }
 		if($getUsers$2.data.users.length != 1){ return {errors:[new ValidationError(`Error occured with $getUsers$2`)]}; }
-		const $addUserAuth$1 = await this.addUserAuth(_parent,{id:$getUsers$2?.data?.users[0]?.id,password:js(input.password)},{getDB});
+		const $addUserAuth$1 = await Query.addUserAuth(_parent,{id:$getUsers$2?.data?.users[0]?.id,password:input.password},{getDB});
 		if(typeof ($addUserAuth$1?.data?.user?.auth?.created_at) == 'undefined') { return {errors:[...($addUserAuth$1?.errors||[]),new ValidationError(`Error occured with $addUserAuth$1`)]}; }
-		return {data:{user:{created_at:$addUser$1?.data?.user?.created_at,id:$getUsers$2?.data?.users[0].id,auth:{created_at:$addUserAuth$1?.data?.user?.auth?.created_at}}}};
+		const rtn = {user:{created_at:$addUser$1?.data?.user?.created_at,id:$getUsers$2?.data?.users[0].id},auth:{created_at:$addUserAuth$1?.data?.user?.auth?.created_at}};
+		return rtn;
 	},
-	async auth (_parent: any,input:any | UserAuthInput,{getDB}: { getDB: (() => Promise<any>) | (() => Promise<any>); }) {
+	async auth (_parent: any,input:any | UserAuthInput,{getDB,Query}) {
 		if(!input.email || !input.password) { return; }
-		const $getUsers$1 = await this.getUsers(_parent,{deactivated:false,email:js(input.email)},{getDB});
+		const $getUsers$1 = await Query.getUsers(_parent,{deactivated:false,email:input.email},{getDB});
 		if(typeof ($getUsers$1?.data?.users?.length) == 'undefined') { return { errors: [...($getUsers$1?.errors||[]),new ForbiddenError(`Account doesn't exists`)] }; }
 		if($getUsers$1?.data?.users?.length != 1){ return { errors: [...($getUsers$1?.errors||[]),new ValidationError(`Error occured with $getUsers$1`)] }; }
-		const $getUserAuth$1 = await this.getUserAuth(_parent,{deactivated:false,id:$getUsers$1?.data?.users[0]?.id,password:js(input.password)},{getDB});
+		const $getUserAuth$1 = await Query.getUserAuth(_parent,{deactivated:false,id:$getUsers$1?.data?.users[0]?.id,password:input.password},{getDB});
 		if(typeof ($getUserAuth$1?.data?.user?.auths?.length) == 'undefined'){ return { errors:[...($getUserAuth$1?.errors||[]),new ValidationError(`Error occured with $getUserAuth$1`)] }; }
 		if($getUserAuth$1?.data?.user?.auths?.length != 1){ return {errors:[...($getUserAuth$1?.errors||[]),new ValidationError(`Error occured with $getUserAuth$1`)]}}
 		return {data:{user:{id:$getUserAuth$1?.data?.user?.auths[0]?.id}}};

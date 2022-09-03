@@ -1,5 +1,5 @@
 import SocketIO from 'socket.io';
-import {Query as Query} from './Query';
+import {Query} from './Query';
 import {resolvers} from './ApolloServer';
 import {config} from '../../Config';
 import {getDB} from '../Data';
@@ -13,14 +13,15 @@ export async function context (incoming:{
 	let $auth$1:any = undefined;
 	switch(incoming.path){
 		case `${config.io.path.user.subscriptions}`: 
-			$auth$1 = await Query.auth(undefined,auth,{getDB}); break;
+			$auth$1 = await Query.auth(undefined,auth,{getDB,Query}); break;
 		case `${config.io.path.user.graphql}`: 
-			$auth$1 = await Query.auth(undefined,auth,{getDB}); break;
+			$auth$1 = await Query.auth(undefined,auth,{getDB,Query}); break;
 		default: break;
 	}
 	return {
 		getDB,
 		resolvers,
+		Query,
 		user: {id:$auth$1?.data?.user?.id},
 		device: {id:auth?.device?.id},
 		io:incoming.io,

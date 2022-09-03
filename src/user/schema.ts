@@ -6,7 +6,12 @@ input DeviceInput {
 }
 type User {
 	id: ID
+	created_at: ID
 }
+type UserAuth {
+	created_at: ID
+}
+
 type Device {
 	id: ID
 	secret: String
@@ -23,6 +28,11 @@ type Location {
 	created_at: ID
 }
 
+type RegisterResponse {
+	user: User
+	auth: UserAuth
+}
+
 type LocationAlert {
 	user: User
 	device: Device
@@ -31,7 +41,7 @@ type LocationAlert {
 
 
 type Query {
-	register(email:String!,password:String!): User
+	register(email:String!,password:String!): RegisterResponse
 	addDevice: Device
 	deactivateDevice(device:DeviceInput): Device
 }

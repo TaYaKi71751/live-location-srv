@@ -11,10 +11,6 @@ input LocationInput {
 	speed: Float
 }
 
-input DeviceInput {
-	id: ID!
-}
-
 type User {
 	id: ID
 }
@@ -22,7 +18,6 @@ type Device {
 	id: ID
 	secret: String
 }
-
 type Location {
 	id: ID
 	latitude: Float
@@ -43,8 +38,6 @@ type LocationAlert {
 
 
 type Query {
-	addDevice: Device
-	deactivateDevice(device:DeviceInput): Device
 	updateLocation(location:LocationInput): Location
 }
 

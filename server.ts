@@ -5,7 +5,8 @@ import {getDB} from './src/Data';
 import { Query as userQuery} from './src/user/Query';
 import { Query as deviceQuery} from './src/device/Query';
 import { ForbiddenError, ValidationError } from 'apollo-server-micro';
-import {apolloServer} from './ApolloServer';
+import {apolloServer as userApolloServer} from './src/user/ApolloServer';
+import {apolloServer as deviceApolloServer} from './src/device/ApolloServer';
 
 const httpServer = http.createServer();
 const io = new SocketIO.Server(httpServer);
@@ -43,10 +44,8 @@ io.of(`${config.io.path.user.subscriptions}`).on("connection",async (socket)=>{
 
 io.of(`${config.io.path.user.graphql}`).on("connection",async (socket)=>{
 	console.log('[server][socket.io][user][graphql][connection] connected !');
-	await auth(userQuery,socket);
 	socket.on("query",async ({query}:{query:string})=>{
-		await auth(userQuery,socket);
-		const res = await apolloServer.executeOperation({query},{io,socket,path:config.io.path.user.graphql});
+		const res = await userApolloServer.executeOperation({query},{io,socket,path:config.io.path.user.graphql});
 		socket.emit('response',res?.data);
 	})
 });
@@ -56,7 +55,7 @@ io.of(`${config.io.path.device.graphql}`).on("connection",async (socket)=>{
 	console.log('[server][socket.io][device][graphql][connection] connected !');
 	socket.on("query",async ({query}:{query:string})=>{
 		await auth(deviceQuery,socket);
-		const res = await apolloServer.executeOperation({query},{io,socket,path:config.io.path.device.graphql});
+		const res = await deviceApolloServer.executeOperation({query},{io,socket,path:config.io.path.device.graphql});
 		socket.emit('response',res?.data);
 	});
 });

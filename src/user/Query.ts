@@ -146,7 +146,7 @@ export const Query = {
 		if($getUserAuth$1?.data?.user?.auths?.length != 1){ return {errors:[...($getUserAuth$1?.errors||[]),new ValidationError(`Error occured with $getUserAuth$1`)]}}
 		return {data:{user:{id:$getUserAuth$1?.data?.user?.auths[0]?.id}}};
 	},
-	async addDevice (_parent: any,input: any,{getDB,user}: any) {
+	async addDevice (_parent: any,input: any,{getDB,user,path}: any) {
 		if(!user || user.id === undefined) { return; }
 		const db = await getDB();
 		let created_at:any = null;

@@ -1,7 +1,7 @@
 import SocketIO from 'socket.io';
 import { config } from '../../Config';
 import { getDB } from '../Data';
-import { Query as userQuery } from "./Query";
+import { Query as Query } from "./Query";
 
 export async function publish(io:SocketIO.Server,triggerName:string,data:{
 	user:{id:number|string},
@@ -25,8 +25,8 @@ export async function publish(io:SocketIO.Server,triggerName:string,data:{
 		if(!_socket.done) {
 			const [k,s] = _socket.value;
 			const {email,password,device} = s.handshake.auth;
-			const u = await userQuery.auth(undefined,{email,password},{getDB});
-			const d = await userQuery.getDevices(undefined,{user:{id:u?.data?.user?.id},device:{deactivated:false}},{getDB});
+			const u = await Query.auth(undefined,{email,password},{getDB});
+			const d = await Query.getDevices(undefined,{user:{id:u?.data?.user?.id},device:{deactivated:false}},{getDB});
 			if(
 				!(s.disconnected) &&
 				s.connected && 

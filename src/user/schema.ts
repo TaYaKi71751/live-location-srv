@@ -4,6 +4,10 @@ export const schema = gql`
 input DeviceInput {
 	id: ID!
 }
+input UserAuthInput {
+	email:String!
+	password:String!
+}
 type User {
 	id: ID
 	created_at: ID
@@ -41,7 +45,7 @@ type LocationAlert {
 
 
 type Query {
-	register(email:String!,password:String!): RegisterResponse
+	register(user:UserAuthInput): RegisterResponse
 	addDevice: Device
 	deactivateDevice(device:DeviceInput): Device
 }

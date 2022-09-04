@@ -11,7 +11,9 @@ import {apolloServer as deviceApolloServer} from './src/device/ApolloServer';
 const httpServer = http.createServer();
 const io = new SocketIO.Server(httpServer);
 const auth = async (Query,socket) => {
-	const {data,errors} = await Query.auth(undefined,socket.handshake.auth,{getDB});
+	const $auth$1 = await Query.auth(undefined,socket.handshake.auth,{getDB,Query});
+	const errors = $auth$1?.errors;
+	const data = $auth$1?.data;
 	if(errors){
 		const e = new ForbiddenError(`Authentication Forbidden`);
 		socket.emit('error',e);

@@ -1,17 +1,17 @@
 import { ApolloServer, gql } from 'apollo-server-micro';
 import { makeExecutableSchema } from 'graphql-tools';
 
-import {Query} from './Query';
-import {config} from '../../Config';
+import { Query } from './Query';
+import { config } from '../../Config';
 import typeDefs from './schema';
 
-import {context} from './Context';
+import { context } from './Context';
 
 export const resolvers = {
-	Query:{
+	Query: {
 		register: Query.register,
 		addDevice: Query.addDevice,
-		deactivateDevice: Query.deactivateDevice,
+		deactivateDevice: Query.deactivateDevice
 	}
 };
 
@@ -25,4 +25,4 @@ export const apolloServer = new ApolloServer({
 	playground: config.apollo.playground,
 	introspection: true,
 	context
-})
+});

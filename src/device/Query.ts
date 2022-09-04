@@ -1,50 +1,79 @@
 import NodeRSA from 'node-rsa';
+import { Query as locationQuery } from '../location/Query';
+import { Select, Values, Where, Insert } from '../util/sqlite3';
 import { ValidationError } from 'apollo-server-micro';
 import { publish } from '../user/Subscription';
 import { config } from '../../Config';
 
 const js = JSON.stringify;
-const oe = Object.entries;
-const fe = Object.fromEntries;
+
+type ID = `${number}`|number;
 
 export const Query = {
-	async auth (_parent,input:any|{id:number|string,secret:string},{getDB}) {
+	async getUsers (_parent, input:{device:{id:number|string}}, { getDB }) {
 		const db = await getDB();
-		let key:any = null;
+		const what = 'USER_ID';
+		const from = 'device';
+		const where = new Where({ DEVICE_ID: input?.device?.id, DEVICE_DEACTIVATED: false });
+		const getUsers = () => `${new Select(what, { from, where })}`;
 		try {
-			key = NodeRSA(input.secret);
-		} catch(e) { return {errors:[e,new ValidationError(`Error while Authentication`)]}; }
-		const pubKey = key.exportKey('pkcs1-public');
-		const selectDevice = () => `SELECT DEVICE_ID FROM device_auth WHERE DEVICE_AUTH_DEACTIVATED = 0 AND DEVICE_ID = ${js(input.id)} AND DEVICE_PUBLIC = ${js(pubKey)}`;
-		const selectedDevices = await db.all(selectDevice());
-		if(selectedDevices.length != 1) { return {errors:[new ValidationError(`Error while Authentication`)]}; }
-		const selectedDeviceIDs = selectedDevices.map(({DEVICE_ID})=>DEVICE_ID);
-		const selectedDeviceID = selectedDeviceIDs[0];
-		const selectUser = () => `SELECT USER_ID FROM device WHERE DEVICE_DEACTIVATED = 0 AND DEVICE_ID= ${js(selectedDeviceID)}`;
-		const selectedUsers = await db.all(selectUser());
-		if(selectedUsers.length != 1) { return {errors:[new ValidationError(`Error while Authentication`)]}; }
-		const selectedUserIDs = selectedUsers.map(({USER_ID})=>USER_ID);
-		const selectedUserID = selectedUserIDs[0];
-		return {data:{device:{id:selectedDeviceID},user:{id:selectedUserID},}};
+			let users = await db.all(getUsers());
+			users = users.map(({ USER_ID }) => ({ id: USER_ID }));
+			return { data: { users } };
+		} catch (e) { return { errors: [e, new ValidationError('Error occurred with getUsers')] }; }
 	},
-	async updateLocation (_parent,input:{location: any},{getDB,user,device,io}) {
-		if(typeof (device?.id) == 'undefined') { return { errors:[new ValidationError(`Error occurred while updateLocation`)] } }
+	async getDeviceAuth (_parent, input:{device:{id:number|string, secret:string}}, { getDB }) {
+		let key:any = null;
+		let pubKey:any = null;
+		try {
+			key = NodeRSA(`${input?.device?.secret}`);
+			pubKey = key.exportKey('pkcs1-public');
+		} catch (e) { return { errors: [e, new ValidationError('Error occurred with getDeviceAuth')] }; }
 		const db = await getDB();
-		let {location} = input;
+
+		const what = 'DEVICE_ID';
+		const from = 'device_auth';
+		const where = new Where({ DEVICE_AUTH_DEACTIVATED: false, DEVICE_ID: input?.device?.id, DEVICE_PUBLIC: js(pubKey) });
+		const getDeviceAuth = new Select(what, { from, where });
+
+		try {
+			let devices = await db.all(`${getDeviceAuth}`);
+			devices = devices.map(({ DEVICE_ID }) => ({ id: DEVICE_ID }));
+			return { data: { devices } };
+		} catch (e) { return { errors: [e, new ValidationError('Error occurred with getDeviceAuth')] }; }
+	},
+	async auth (_parent, input:{device:{id:ID, secret:string}}, { getDB }) {
+		const $getDeviceAuth$1 = await this.getDeviceAuth(_parent, { device: { id: input?.device?.id, secret: input?.device?.secret } }, { getDB });
+		if (
+			$getDeviceAuth$1?.data?.devices?.length != 1 ||
+			$getDeviceAuth$1?.errors?.length
+		) { return { errors: [...($getDeviceAuth$1?.errors || []), new ValidationError('Error occurred while auth')] }; }
+		const $getUsers$1 = await this.getUsers(_parent, { device: { id: $getDeviceAuth$1?.data?.devices[0]?.id } }, { getDB });
+		if (
+			$getUsers$1?.data?.users?.length != 1 ||
+			$getUsers$1?.errors?.length
+		) { return { errors: [...($getUsers$1?.errors || []), new ValidationError('Error occurred while auth')] }; }
+		return { data: { user: { id: $getUsers$1?.data?.users[0]?.id }, device: { id: $getDeviceAuth$1?.data?.devices[0]?.id } } };
+	},
+	async updateLocation (_parent, input:{location: any}, { getDB, user, device, io }) {
+		if (typeof (device?.id) == 'undefined') { return { errors: [new ValidationError('Error occurred while updateLocation')] }; }
 		let created_at:any = null;
-		let _location = fe(oe(location).map(([k,v])=>(['LOCATION_'+k.toUpperCase(),v])));
-		const addLocation = () => `INSERT INTO location (DEVICE_ID,LOCATION_ID,CREATED_AT,${Object.keys(location).map((k)=>('LOCATION_'+k.toUpperCase()))}) VALUES (${js(device.id)},(SELECT IFNULL(MAX(LOCATION_ID),-1) FROM location) + 1,${js(created_at = Date.now())},${Object.values(location)})`;
-		const selectAddedLocation = () => `SELECT * FROM location WHERE DEVICE_ID = ${js(device.id)} AND CREATED_AT = ${js(created_at)}`;
-		await db.run(addLocation());
-		const addedLocations = await db.all(selectAddedLocation());
-		if(addedLocations.length != 1) { return { errors:[new ValidationError(`Error occurred while updateLocation`)] } }
-		const addedLocation = addedLocations[0];
-		const __location:any = fe(oe(addedLocation).map(([k,v])=>([k.replace('LOCATION_','').toLowerCase(),v])));
-		await publish(io,'location',{
-			user:{id:user.id},
-			device:{id:device.id},
-			location: __location
+		const $addLocation$1 = await locationQuery.addLocation(_parent, { device: { id: device?.id }, location: input?.location }, { getDB });
+		if (
+			$addLocation$1?.errors?.length
+		) { return { errors: [...($addLocation$1?.errors || [])] }; }
+		const location = $addLocation$1?.data?.location;
+		created_at = location?.created_at;
+		const $getLocations$1 = await locationQuery.getLocations(_parent, { device: { id: device?.id }, location: { created_at } }, { getDB });
+		if (
+			$getLocations$1?.errors?.length ||
+			$getLocations$1?.data?.locations?.length != 1
+		) { return { errors: [...($getLocations$1?.errors || []), new ValidationError('Error occurred while updateLocation')] }; }
+		await publish(io, 'location', {
+			user: { id: user?.id },
+			device: { id: device?.id },
+			location: $getLocations$1?.data?.locations[0]
 		});
-		return __location;
+		return $getLocations$1?.data?.locations[0];
 	}
-}
+};

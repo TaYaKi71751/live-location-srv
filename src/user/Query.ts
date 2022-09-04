@@ -1,8 +1,11 @@
 import { ForbiddenError, ValidationError } from 'apollo-server-micro';
 import NodeRSA from 'node-rsa';
+import { Select, Insert, Where, Values } from '../util/sqlite3';
 const js = JSON.stringify;
 const oe = Object.entries;
 const fe = Object.fromEntries;
+
+type ID = `${number}`|number;
 
 export type UserRegisterInput = {
 	email:string,
@@ -14,165 +17,182 @@ export type UserAuthInput = {
 	password:string
 };
 
-const Where = function(){};
-Where.prototype.toString = function(): string {
-	const _ = Object.entries(this)
-	.filter(([k,v])=>(typeof k != 'undefined' && typeof v != 'undefined'));
-	if(!_.length) { return ''; }
-	const __ = _.map(
-		([k,v])=>([js(k),typeof v == 'boolean' ? Number(v) : v].join(' = '))
-	).join(' AND ');
-	return __ ? `WHERE ${__}` : '';
-};
-
-const Values = function(){};
-Values.prototype.toString = function(): string {
-	const _ = Object.entries(this)
-		.filter(([k,v])=>(typeof k != 'undefined' && typeof v != 'undefined'));
-	if(!_.length) { return ''; }
-	const _keys = _.map(([k,v])=>(k));
-	const _values = _.map(([k,v])=>(v));
-	const __ = `( ${_keys.join(',')} ) VALUES ( ${_values.join(',')} )`;
-	return __ || '';
-}
-
 export const Query = {
-	async getUsers (_parent: any,input:{email?:string,created_at?:number|string,deactivated?:boolean},{getDB}: any) {
-		const where:{[x:string]:any} = new Where();
-		if(!input?.email) { return; } else { where['USER_EMAIL'] = js(input.email); }
-		if(typeof input?.deactivated == 'undefined') {  } else { where['USER_DEACTIVATED'] = Boolean(input.deactivated); }
+	async getUsers (_parent: any, input:{user:{email?:string, created_at?:number|string, deactivated?:boolean}}, { getDB }: any) {
+		const what = '*';
+		const from = 'user';
+		const where:any = new Where();
+		if (!input?.user?.email) { return; } else { where.USER_EMAIL = js(input?.user?.email); }
+		if (typeof input?.user?.deactivated == 'undefined') { } else { where.USER_DEACTIVATED = Boolean(input?.user?.deactivated); }
 
 		const db = await getDB();
+		const getUsers = () => `${new Select(what, { from, where })}`;
 
 		try {
-			const getUserID = `SELECT * FROM user ${where}`;
-			const userList = await db.all(getUserID);
+			const userList = await db.all(getUsers());
 			const users = userList.map(
-				(u: { [s: string]: unknown; } | ArrayLike<unknown>)=>fe(oe(u).map(([k,v])=>([k.replace('USER_','').toLowerCase(),v])))
+				(u) => fe(oe(u).map(([k, v]) => ([k.replace('USER_', '').toLowerCase(), v])))
 			);
-			return { data:{ users } }
-		} catch(e){ return { errors:[e] }; }
+			return { data: { users } };
+		} catch (e) { return { errors: [e] }; }
 	},
-	async getUserAuth (_parent: any,input:{id?:number|string,password?:string,deactivated?:boolean},{getDB}: any){
-		const where:{[x:string]:any} = new Where();
-		if(typeof (input?.id) == 'undefined') { return; } else { where['USER_ID'] = input.id; }
-		if(!input?.password) { return; } else { where['USER_PASSWORD'] = input.password; }
-		if(typeof input?.deactivated == 'undefined') {  } else { where['USER_AUTH_DEACTIVATED'] = Boolean(input.deactivated); }
+	async getUserAuth (_parent: any, input:{user:{id?:ID, password?:string, deactivated?:boolean}}, { getDB }: any) {
+		const what = '*';
+		const from = 'user_auth';
+		const where:any = new Where();
+		if (typeof (input?.user?.id) == 'undefined') { return; } else { where.USER_ID = input?.user?.id; }
+		if (!input?.user?.password) { return; } else { where.USER_PASSWORD = js(input?.user?.password); }
+		if (typeof input?.user?.deactivated == 'undefined') { } else { where.USER_AUTH_DEACTIVATED = Boolean(input?.user?.deactivated); }
 
+		const getUserAuth = `${new Select(what, { from, where })}`;
 		const db = await getDB();
 
 		try {
-			const getUserID = `SELECT * FROM user_auth ${where}`;
-			const userList:any[] = await db.all(getUserID);
-			const auths = userList.map((a)=>(
-				fe(oe(a).map(([k,v])=>[k.replace('USER_','').replace('AUTH_','').toLowerCase(),v]))
+			const userList = await db.all(getUserAuth);
+			const auths = userList.map((a) => (
+				fe(oe(a).map(([k, v]) => [k.replace('USER_', '').replace('AUTH_', '').toLowerCase(), v]))
 			));
-			return { data:{ user:{auths} } }
-		} catch(e){ return { errors:[e] }; }
+			return { data: { user: { auths } } };
+		} catch (e) { console.error(e); return { errors: [e] }; }
 	},
-	async getDevices (_parent: any,input:{user:{id:number|string},device:{deactivated?:boolean}},{getDB}: any) {
-		const where:{[x:string]:any} = new Where();
-		if(typeof (input?.user?.id) == 'undefined') { return; } else { where['USER_ID'] = input?.user?.id; }
-		if(typeof (input?.device?.deactivated) == 'undefined') {  } else { where['DEVICE_DEACTIVATED'] = Boolean(input?.device?.deactivated); }
+	async getDevices (_parent: any, input:{user?:{id?:ID}, device:{id?:ID, deactivated?:boolean, created_at?:ID}}, { getDB }: any) {
+		const what = '*';
+		const from = 'device';
+		const where:any = new Where();
+		if (typeof (input?.user?.id) == 'undefined') { return { errors: [new ValidationError('Error occurred with getDevices')] }; } else { where.USER_ID = input?.user?.id; }
+		if (typeof (input?.device?.deactivated) == 'undefined') { } else { where.DEVICE_DEACTIVATED = Boolean(input?.device?.deactivated); }
+		if (typeof (input?.device?.created_at) == 'undefined') { } else { where.created_at = js(input?.device?.created_at); }
+		if (typeof (input?.device?.id) == 'undefined') { } else { where.DEVICE_ID = input?.device?.id; }
 
 		const db = await getDB();
 
 		try {
-			const getDevices = `SELECT * FROM device ${where}`;
-			const deviceList = await db.all(getDevices);
+			const getDevices = () => `${new Select(what, { from, where })}`;
+			const deviceList = await db.all(getDevices());
 			const devices = deviceList.map(
-				(d)=>fe(oe(d).map(([k,v])=>([k.replace('DEVICE_','').toLowerCase(),v])))
+				(d) => fe(oe(d).map(([k, v]) => ([k.replace('DEVICE_', '').toLowerCase(), v])))
 			);
-			return { data:{ devices } }
-		} catch(e){ return { errors:[e] }; }
-		
+			return { data: { devices } };
+		} catch (e) { return { errors: [e] }; }
 	},
-	async addUser (_parent: any,input:{email:string},{getDB}: any) {
-		const $getUsers$1 = await this.getUsers(_parent,{email:input.email,deactivated:false},{getDB});
-		if($getUsers$1.errors) { return {errors:[...($getUsers$1.errors||[]),new ValidationError(`Error occurred with addUser`)]}; }
-		if(typeof ($getUsers$1?.data?.users?.length) == 'undefined') { return {errors:[new ValidationError(`Error occurred with addUser`)]}; }
-		if($getUsers$1?.data?.users?.length){return {errors:[new ForbiddenError(`Account Already Exists`)]}}
+	async addUser (_parent: any, input:{user:{email:string}}, { getDB }: any) {
+		const into = 'user';
+		const $getUsers$1 = await this.getUsers(_parent, { user: { email: input?.user?.email, deactivated: false } }, { getDB });
+		if (
+			$getUsers$1.errors ||
+			typeof ($getUsers$1?.data?.users?.length) == 'undefined'
+		) { return { errors: [...($getUsers$1.errors || []), new ValidationError('Error occurred with addUser')] }; }
+		if (
+			$getUsers$1?.data?.users?.length
+		) { return { errors: [new ForbiddenError('Account Already Exists')] }; }
 		const db = await getDB();
 
 		let created_at:any = null;
-		const NEW_USER_ID = '(SELECT IFNULL(MAX(USER_ID),-1) FROM user) + 1';
-		const add_user_values = () => {
-			const _ = new Values();
-			_['USER_ID'] = NEW_USER_ID;
-			_['USER_EMAIL'] = js(input.email);
-			_['CREATED_AT'] = js(created_at = Date.now());
+		const NEW_USER_ID = `(${new Select('IFNULL(MAX(USER_ID),-1)', { from: 'user' })}) + 1`;
+		const values = () => {
+			const _ = new Values({
+				USER_ID: NEW_USER_ID,
+				USER_EMAIL: js(input?.user?.email),
+				CREATED_AT: js(created_at = Date.now())
+			});
 			return _;
 		};
-		const add_user = () => `INSERT INTO user ${add_user_values()}`;
-		try{
-			await db.run(add_user());
-			return { data:{ user:{ created_at } } };
-		} catch(e){ return {errors:[e]}; }
+		const addUser = () => `${new Insert(into, values())}`;
+		try {
+			await db.run(addUser());
+			return { data: { user: { created_at } } };
+		} catch (e) { return { errors: [e] }; }
 	},
-	async addUserAuth (_parent: any,input:{id:number|string,password:string},{getDB}: any) {
-		const db = await getDB();
+	async addUserAuth (_parent: any, input:{user:{id:number|string, password:string}}, { getDB }: any) {
 		let created_at:any = null;
-		const add_user_auth_values = () => {
-			const _ = new Values();
-			_['USER_ID'] = js(input.id);
-			_['USER_PASSWORD'] = js(input.password);
-			_['CREATED_AT'] = js(created_at = Date.now());
+		const db = await getDB();
+		const into = 'user_auth';
+		const values = () => {
+			const _ = new Values({
+				id: input?.user?.id,
+				password: js(input?.user?.password)
+			});
+			_.keyPrefix = 'USER_';
+			_.keyToUpperCase = true;
+			_.apply();
+			_.keyPrefix = '';
+			Object.assign(_, { created_at: js(created_at = Date.now()) });
 			return _;
 		};
-		const add_user_auth = () => `INSERT INTO user_auth ${add_user_auth_values()}`;	
-		await db.run(add_user_auth());
-		return { data:{ user:{ auth:{ created_at } } }};
+		try {
+			const addUserAuth = () => `${new Insert(into, values())}`;
+			await db.run(addUserAuth());
+			return { data: { user: { auth: { created_at } } } };
+		} catch (e) { return { errors: [e] }; }
 	},
-	async register (_parent: any,input:{email:string,password:string},{getDB,Query}) {
-		if(!input.email || !input.password) { return; }
-		const $getUsers$1 = await Query.getUsers(_parent,{email:input.email,deactivated:false},{getDB});
-		if(
+	async register (_parent: any, input:{user:{email:string, password:string}}, { getDB, Query }) {
+		if (!input?.user?.email || !input?.user?.password) { return { errors: [new ForbiddenError('Request Forbidden')] }; }
+		const $getUsers$1 = await Query.getUsers(_parent, { user: { email: input?.user?.email, deactivated: false } }, { getDB });
+		if (
 			typeof ($getUsers$1?.data?.users?.length) != 'undefined' &&
 			$getUsers$1?.data?.users?.length
-		) { return { errors: [...($getUsers$1?.errors||[]),new ForbiddenError(`Account already exists`)] }; }
-		const $addUser$1 = await Query.addUser(_parent,{email:input.email},{getDB});
-		if(typeof ($addUser$1?.data?.user?.created_at) == 'undefined') { return {errors:[...($addUser$1?.errors||[]),new ValidationError(`Error occured with $addUser$1`)]}; }
-		const $getUsers$2 = await Query.getUsers(_parent,{deactivated:false,created_at:$addUser$1?.data?.user?.created_at,email:input.email},{getDB});
-		if(typeof ($getUsers$2?.data?.users?.length) == 'undefined') { return {errors:[...($getUsers$2?.errors||[]),new ValidationError(`Error occured with $getUsers$2`)]}; }
-		if($getUsers$2.data.users.length != 1){ return {errors:[new ValidationError(`Error occured with $getUsers$2`)]}; }
-		const $addUserAuth$1 = await Query.addUserAuth(_parent,{id:$getUsers$2?.data?.users[0]?.id,password:input.password},{getDB});
-		if(typeof ($addUserAuth$1?.data?.user?.auth?.created_at) == 'undefined') { return {errors:[...($addUserAuth$1?.errors||[]),new ValidationError(`Error occured with $addUserAuth$1`)]}; }
-		const rtn = {user:{created_at:$addUser$1?.data?.user?.created_at,id:$getUsers$2?.data?.users[0].id},auth:{created_at:$addUserAuth$1?.data?.user?.auth?.created_at}};
+		) { return { errors: [...($getUsers$1?.errors || []), new ForbiddenError('Account already exists')] }; }
+		const $addUser$1 = await Query.addUser(_parent, { user: { email: input?.user?.email } }, { getDB });
+		if (
+			typeof ($addUser$1?.data?.user?.created_at) == 'undefined'
+		) { return { errors: [...($addUser$1?.errors || []), new ValidationError('Error occured with $addUser$1')] }; }
+		const $getUsers$2 = await Query.getUsers(_parent, { user: { deactivated: false, created_at: $addUser$1?.data?.user?.created_at, email: input?.user?.email } }, { getDB });
+		if (
+			typeof ($getUsers$2?.data?.users?.length) == 'undefined'
+		) { return { errors: [...($getUsers$2?.errors || []), new ValidationError('Error occured with $getUsers$2')] }; }
+		if (
+			$getUsers$2.data.users.length != 1
+		) { return { errors: [new ValidationError('Error occured with $getUsers$2')] }; }
+		const $addUserAuth$1 = await Query.addUserAuth(_parent, { user: { id: $getUsers$2?.data?.users[0]?.id, password: input?.user?.password } }, { getDB });
+		if (
+			typeof ($addUserAuth$1?.data?.user?.auth?.created_at) == 'undefined'
+		) { return { errors: [...($addUserAuth$1?.errors || []), new ValidationError('Error occured with $addUserAuth$1')] }; }
+		const rtn = { user: { created_at: $addUser$1?.data?.user?.created_at, id: $getUsers$2?.data?.users[0].id }, auth: { created_at: $addUserAuth$1?.data?.user?.auth?.created_at } };
 		return rtn;
 	},
-	async auth (_parent: any,input:any | UserAuthInput,{getDB,Query}) {
-		if(!input.email || !input.password) { return; }
-		const $getUsers$1 = await Query.getUsers(_parent,{deactivated:false,email:input.email},{getDB});
-		if(typeof ($getUsers$1?.data?.users?.length) == 'undefined') { return { errors: [...($getUsers$1?.errors||[]),new ForbiddenError(`Account doesn't exists`)] }; }
-		if($getUsers$1?.data?.users?.length != 1){ return { errors: [...($getUsers$1?.errors||[]),new ValidationError(`Error occured with $getUsers$1`)] }; }
-		const $getUserAuth$1 = await Query.getUserAuth(_parent,{deactivated:false,id:$getUsers$1?.data?.users[0]?.id,password:input.password},{getDB});
-		if(typeof ($getUserAuth$1?.data?.user?.auths?.length) == 'undefined'){ return { errors:[...($getUserAuth$1?.errors||[]),new ValidationError(`Error occured with $getUserAuth$1`)] }; }
-		if($getUserAuth$1?.data?.user?.auths?.length != 1){ return {errors:[...($getUserAuth$1?.errors||[]),new ValidationError(`Error occured with $getUserAuth$1`)]}}
-		return {data:{user:{id:$getUserAuth$1?.data?.user?.auths[0]?.id}}};
+	async auth (_parent: any, input:{user:UserAuthInput}, { getDB, Query }) {
+		if (!input?.user?.email || !input?.user?.password) { return; }
+		const $getUsers$1 = await Query.getUsers(_parent, { user: { email: input?.user?.email, deactivated: false } }, { getDB });
+		if (
+			typeof ($getUsers$1?.data?.users?.length) == 'undefined'
+		) { return { errors: [...($getUsers$1?.errors || []), new ForbiddenError('Account doesn\'t exists')] }; }
+		if (
+			$getUsers$1?.data?.users?.length != 1
+		) { return { errors: [...($getUsers$1?.errors || []), new ValidationError('Error occured with $getUsers$1')] }; }
+		const $getUserAuth$1 = await Query.getUserAuth(_parent, { user: { deactivated: false, id: $getUsers$1?.data?.users[0]?.id, password: input?.user?.password } }, { getDB });
+		if (
+			typeof ($getUserAuth$1?.data?.user?.auths?.length) == 'undefined' &&
+			$getUserAuth$1?.data?.user?.auths?.length != 1
+		) { return { errors: [...($getUserAuth$1?.errors || []), new ValidationError('Error occured with $getUserAuth$1')] }; }
+		return { data: { user: { id: $getUserAuth$1?.data?.user?.auths[0]?.id } } };
 	},
-	async addDevice (_parent: any,input: any,{getDB,user,path}: any) {
-		if(!user || user.id === undefined) { return; }
+	async addDevice (_parent: any, input:never, { getDB, user, path }: any) {
+		if (!user || user.id === undefined) { return; }
 		const db = await getDB();
 		let created_at:any = null;
-		let key = NodeRSA({b:512});
+		let key = NodeRSA({ b: 512 });
 		key = {
 			private: key.exportKey('pkcs1'),
 			public: key.exportKey('pkcs1-public')
 		};
-		const addDevice = () => `INSERT INTO device (USER_ID,DEVICE_ID,CREATED_AT) VALUES (${user.id},(SELECT IFNULL(MAX(DEVICE_ID),-1) FROM device) + 1,${js(created_at = Date.now())})`;
+
+		const into = 'device';
+		const NEW_DEVICE_ID = `(${new Select('IFNULL(MAX(DEVICE_ID),-1)', { from: 'device' })}) + 1`;
+		const values = () => new Values({ USER_ID: user.id, DEVICE_ID: NEW_DEVICE_ID, CREATED_AT: js(created_at = Date.now()) });
+		const addDevice = () => `${new Insert(into, values())}`;
 		await db.run(addDevice());
 		const selectAddedDevice = () => `SELECT DEVICE_ID FROM device WHERE DEVICE_DEACTIVATED = 0 AND USER_ID = ${user.id} AND CREATED_AT = ${js(created_at)}`;
 		const selectedDevices = await db.all(selectAddedDevice());
-		const selectedDeviceIDs = selectedDevices.map(({DEVICE_ID})=>DEVICE_ID);
+		const selectedDeviceIDs = selectedDevices.map(({ DEVICE_ID }) => DEVICE_ID);
 		const selectedDeviceID = selectedDeviceIDs[0];
 		const addDeviceAuth = () => `INSERT INTO device_auth (DEVICE_ID,CREATED_AT,DEVICE_SECRET,DEVICE_PUBLIC) VALUES (${selectedDeviceID},${js(created_at = Date.now())},${js(key.private)},${js(key.public)})`;
 		await db.run(addDeviceAuth());
-		const device = {id:selectedDeviceID,secret:key.public};
+		const device = { id: selectedDeviceID, secret: key.public };
 		return device;
 	},
-	async deactivateDevice (_parent: any,input: { device: { id: any; }; },{getDB,user}: any) {
-		if(!user || user.id === undefined) { return; }
-		if(!input.device.id) { return; }
+	async deactivateDevice (_parent: any, input: { device: { id:ID; }; }, { getDB, user }: any) {
+		if (!user || user.id === undefined) { return; }
+		if (!input.device.id) { return; }
 		const db = await getDB();
 		const deactivateDevice = `UPDATE device SET DEVICE_DEACTIVATED = 1 WHERE USER_ID = ${user.id} AND DEVICE_ID = ${js(input.device.id)} AND DEVICE_DEACTIVATED = 0`;
 		const deactivateDeviceAuth = `UPDATE device_auth SET DEVICE_AUTH_DEACTIVATED = 1 WHERE DEVICE_ID = ${js(input.device.id)} AND DEVICE_AUTH_DEACTIVATED = 0`;

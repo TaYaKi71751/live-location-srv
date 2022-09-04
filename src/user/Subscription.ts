@@ -1,9 +1,9 @@
 import SocketIO from 'socket.io';
 import { config } from '../../Config';
 import { getDB } from '../Data';
-import { Query } from "./Query";
+import { Query } from './Query';
 
-export async function publish(io:SocketIO.Server,triggerName:string,data:{
+export async function publish (io:SocketIO.Server, triggerName:string, data:{
 	user:{id:number|string},
 	device:{id:number|string},
 	location:{
@@ -17,35 +17,35 @@ export async function publish(io:SocketIO.Server,triggerName:string,data:{
 		heading?: number|string|null,
 		speed?: number|string|null,
 	}
-}){
+}) {
 	const socketEntries = io?.of(`${config.io.path.user.subscriptions}`)?.sockets?.entries();
- if(!(socketEntries)){ return; }
+	if (!(socketEntries)) { return; }
 	let _socket:any = null;
-	while(!(_socket = socketEntries.next()).done) {
-		if(!_socket.done) {
-			const [k,s] = _socket.value;
-			const {email,password,device} = s.handshake.auth;
-			const u = await Query.auth(undefined,{email,password},{getDB,Query});
-			const d = await Query.getDevices(undefined,{user:{id:u?.data?.user?.id},device:{deactivated:false}},{getDB});
-			if(
+	while (!(_socket = socketEntries.next()).done) {
+		if (!_socket.done) {
+			const [k, s] = _socket.value;
+			const { user, device } = s.handshake.auth;
+			const u = await Query.auth(undefined, { user: { email: user?.email, password: user?.password } }, { getDB, Query });
+			const d = await Query.getDevices(undefined, { user: { id: u?.data?.user?.id }, device: { deactivated: false } }, { getDB });
+			if (
 				!(s.disconnected) &&
-				s.connected && 
+				s.connected &&
 				typeof (u?.data?.user?.id) != 'undefined' &&
 				typeof (d?.data?.devices) != 'undefined' &&
 				typeof (device?.id) != 'undefined' &&
 				typeof (data?.device?.id) != 'undefined' &&
 				typeof (data?.user?.id) != 'undefined' &&
-				d?.data?.devices?.filter((_d)=>(
+				d?.data?.devices?.filter((_d) => (
 					typeof (_d?.id) != 'undefined' &&
 					typeof (data?.device?.id) != 'undefined' &&
 					`${_d?.id}` === `${data?.device?.id}` &&
-				 `${_d?.id}` === `${device?.id}`
+					`${_d?.id}` === `${device?.id}`
 				))?.length &&
 				`${device?.id}` === `${data?.device?.id}` &&
 				`${u?.data?.user?.id}` === `${data?.user?.id}` &&
 				d?.data?.devices?.length != 0
 			) {
-				s.emit(triggerName,data);
+				s.emit(triggerName, data);
 			}
 		}
 	}

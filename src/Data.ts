@@ -1,10 +1,10 @@
-import {config} from '../Config';
+import { config } from '../Config';
 import sqlite3 from 'sqlite3';
-import {open} from 'sqlite';
+import { open } from 'sqlite';
 let db:any = null;
 
 export const getDB = async () => {
-	if(!db) {
+	if (!db) {
 		db = await open({
 			filename: config.db.path,
 			mode: sqlite3.OPEN_READWRITE,
@@ -12,4 +12,4 @@ export const getDB = async () => {
 		});
 	}
 	return db;
-}
+};

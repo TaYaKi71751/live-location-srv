@@ -1,6 +1,3 @@
-.vercel
 node_modules/**
 node_modules/
 node_modules
-*.db
-auths.json

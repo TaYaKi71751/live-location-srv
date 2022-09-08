@@ -24,7 +24,7 @@ type Location {
 	longitude: Float
 	accuracy: Float
 	altitude: Float
-	altitude_accuracy: Float
+	altitudeAccuracy: Float
 	heading: Float
 	speed: Float
 	created_at: ID
@@ -38,7 +38,7 @@ type LocationAlert {
 
 
 type Query {
-	updateLocation(location:LocationInput): Location
+	reportLocation(location:LocationInput): Location
 }
 
 `;

@@ -1,7 +1,6 @@
-import { Set } from './Set';
 import { Values } from './Values';
-
-export class Where extends Values {
+import { Where } from './Where';
+export class Set extends Values {
 	constructor (values?:{
 		[x:string]:string|number|boolean|undefined,
 	}|Set|Where|Values) {
@@ -11,11 +10,12 @@ export class Where extends Values {
 
 	toString () {
 		const _c = this.clone();
-		const _ = _c.entries();
+		_c.apply();
+		const _ = (
+			_c.entries()
+				.map(([k, v]) => `${k} = ${(typeof v == 'boolean' ? Number(v) : v)}`)
+		);
 		if (!_.length) { return ''; }
-		const __ = _.map(
-			([k, v]) => ([(k), typeof v == 'boolean' ? Number(v) : v].join(' = '))
-		).join(' AND ');
-		return __ ? `WHERE ${__}` : '';
+		return _.join(',') || '';
 	}
 }

@@ -8,46 +8,44 @@ input UserAuthInput {
 	email:String!
 	password:String!
 }
+type UserAuth {
+	id: ID
+	created_at: ID
+	password: String
+}
 type User {
 	id: ID
+	email: String
 	created_at: ID
-}
-type UserAuth {
-	created_at: ID
+	auth: UserAuth
 }
 
+type DeviceAuth {
+	id: ID
+	created_at: ID
+	key: String
+	public: String
+}
 type Device {
 	id: ID
-	secret: String
-}
-type Location {
-	id: ID
-	latitude: Float
-	longitude: Float
-	accuracy: Float
-	altitude: Float
-	altitude_accuracy: Float
-	heading: Float
-	speed: Float
 	created_at: ID
+	auth: DeviceAuth
 }
 
 type RegisterResponse {
 	user: User
-	auth: UserAuth
 }
-
-type LocationAlert {
-	user: User
+type AddDeviceResponse {
 	device: Device
-	location: Location
 }
-
+type DeactivateDeviceResponse {
+	device: Device
+}
 
 type Query {
 	register(user:UserAuthInput): RegisterResponse
-	addDevice: Device
-	deactivateDevice(device:DeviceInput): Device
+	addDevice: AddDeviceResponse
+	deactivateDevice(device:DeviceInput): DeactivateDeviceResponse
 }
 
 `;

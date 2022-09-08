@@ -1,30 +1,63 @@
 import SocketIO from 'socket.io';
-import { Query } from './Query';
-import { resolvers } from './ApolloServer';
+import { auth as userAuth } from './Query/index';
 import { config } from '../../Config';
 import { getDB } from '../Data';
+
+type ID = `${number}`|number;
+type UserAuthInput = {
+	email:string;
+	password:string;
+};
+type DeviceAuthInput = {
+	id?:ID;
+};
+type AuthInput = {
+	user?:UserAuthInput;
+	device?:DeviceAuthInput;
+}
 
 export async function context (incoming:{
 	io:SocketIO.Server
 	socket:any,
 	path:string,
 }) {
-	const auth = incoming?.socket?.handshake?.auth;
-	let $auth$1:any;
+	const io = incoming?.io;
+	const socket = incoming?.socket;
+	const authInput:any = socket?.handshake?.auth;
+
+	let rows:any = null;
+	let errors:any = null;
+
+	let user:any = null;
+	let device:any = null;
+	let $auth$1:any = null;
+	if (authInput?.user) {
+		$auth$1 = await userAuth(undefined, { user: authInput?.user }, { getDB });
+		rows = $auth$1?.data?.rows;
+		errors = $auth$1?.errors;
+	}
 	switch (incoming.path) {
 	case `${config.io.path.user.subscriptions}`:
-		$auth$1 = await Query.auth(undefined, auth, { getDB, Query }); break;
-	case `${config.io.path.user.graphql}`:
-		$auth$1 = await Query.auth(undefined, auth, { getDB, Query }); break;
+		if (
+			!rows?.length ||
+			errors?.length
+		) { } else {
+			socket.disconnect(true);
+			return { getDB };
+		} break;
+	case `${config.io.path.user.graphql}`:break;
 	default: break;
+	}
+
+	if (rows?.length) {
+		user = rows[0]?.user;
+		device = { id: authInput?.device?.id };
 	}
 	return {
 		getDB,
-		resolvers,
-		Query,
-		user: { id: $auth$1?.data?.user?.id },
-		device: { id: auth?.device?.id },
-		io: incoming.io,
-		socket: incoming.socket
+		user,
+		device,
+		io,
+		socket
 	};
 }

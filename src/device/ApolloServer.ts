@@ -1,17 +1,11 @@
-import { ApolloServer, gql } from 'apollo-server-micro';
+import { ApolloServer } from 'apollo-server-micro';
 import { makeExecutableSchema } from 'graphql-tools';
 
-import { Query } from './Query';
 import { config } from '../../Config';
 import typeDefs from './schema';
 
+import { resolvers } from './Resolver';
 import { context } from './Context';
-
-export const resolvers = {
-	Query: {
-		updateLocation: Query.updateLocation
-	}
-};
 
 export const schema = makeExecutableSchema({
 	typeDefs,

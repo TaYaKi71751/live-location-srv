@@ -1,3 +1,6 @@
+import { Set } from './Set';
+import { Where } from './Where';
+
 export type ValuesOptions = {
 	__KEY_PREFIX__?:string;
 	__KEY_TO_UPPERCASE__?:boolean;
@@ -11,8 +14,8 @@ export class Values extends Object {
 	};
 
 	constructor (values?:{
-		[x:string]:string|number|boolean,
-	}|Values) {
+		[x:string]:string|number|boolean|undefined,
+	}|Values|Set|Where) {
 		super();
 		Object.assign(this, values);
 	}
@@ -68,13 +71,14 @@ export class Values extends Object {
 	apply () {
 		const _ = this.entries();
 		if (!_.length) { this.clear(); }
-		const __ = _.forEach(([k, v]) => {
+		_.forEach(([k, v]) => {
 			delete this[k];
 			let _k = `${this.keyPrefix}${k}`;
 			if (this.keyToLowerCase) { _k = _k.toLowerCase(); }
 			if (this.keyToUpperCase) { _k = _k.toUpperCase(); }
 			this[_k] = v;
 		});
+		return this.clone();
 	}
 
 	clone () {
@@ -87,13 +91,14 @@ export class Values extends Object {
 
 	filter (fn:(entry, index, array)=>boolean) {
 		const _ = this.entries();
-		const _f = {};
+		const _f = new Values();
+		_f.setOptions(this._opts);
 		_.forEach((entry, index, array) => {
 			if (fn(entry, index, array)) {
 				_f[entry[0]] = entry[1];
 			}
 		});
-		return Object.assign(new Values(_f), { _opts: new Object(this._opts) });
+		return _f;
 	}
 
 	get length () { return this.entries().length; }

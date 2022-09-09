@@ -23,7 +23,6 @@ type User {
 type DeviceAuth {
 	id: ID
 	created_at: ID
-	key: String
 	public: String
 }
 type Device {

@@ -16,7 +16,6 @@ type User {
 }
 type Device {
 	id: ID
-	secret: String
 }
 type Location {
 	id: ID

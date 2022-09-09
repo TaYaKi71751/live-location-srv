@@ -21,7 +21,7 @@ export async function addDevice (
 	user?:User,
 	device?:Device
 }> {
-	if (!user?.id) { return; }
+	if (typeof user?.id == 'undefined') { return; }
 	let rows:any = null;
 	let errors:any = null;
 	let device:any = {};

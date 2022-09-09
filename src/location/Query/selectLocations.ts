@@ -50,6 +50,7 @@ export async function selectLocations (
 			r.device = { id: row?.DEVICE_ID };
 			r.location = {
 				id: row?.LOCATION_ID,
+				created_at: row?.CREATED_AT,
 				latitude: row?.LOCATION_LATITUDE,
 				longitude: row?.LOCATION_LONGITUDE,
 				accuracy: row?.LOCATION_ACCURACY,

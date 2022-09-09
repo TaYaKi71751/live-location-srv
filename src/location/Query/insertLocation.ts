@@ -34,7 +34,7 @@ export async function insertLocation (
 	const values = () => (new Values({
 		DEVICE_ID: device?.id,
 		LOCATION_ID: `(${new Select('IFNULL(MAX(LOCATION_ID),-1)', { from: into })}) + 1`,
-		created_at: js(location.created_at = Date.now()),
+		CREATED_AT: js(location.created_at = Date.now()),
 		LOCATION_LATITUDE: location?.latitude,
 		LOCATION_LONGITUDE: location?.longitude,
 		LOCATION_ACCURACY: location?.accuracy,

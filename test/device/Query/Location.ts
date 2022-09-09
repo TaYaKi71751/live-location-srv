@@ -51,7 +51,7 @@ const reportLocation = (socket) => {
 };
 auths().forEach((auth) => {
 	auth?.devices?.forEach((device) => {
-		const socket = io(`ws://${hostname}:${port}${path}`, { auth: { device: { id: device?.id, public: JSON.parse(`"${device?.public}"`) } } });
+		const socket = io(`ws://${hostname}:${port}${path}`, { auth: { device } });
 		reportLocation(socket);
 	});
 });

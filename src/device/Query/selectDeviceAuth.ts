@@ -44,12 +44,12 @@ export async function selectDeviceAuth (
 	try {
 		let rows:any = await db.all(selectDeviceAuth());
 		rows = rows.map((row) => {
-			const r:any = {device:{}};
+			const r:any = { device: {} };
 			r.device.id = row.DEVICE_ID;
 			r.device.auth = {
 				id: row.DEVICE_AUTH_ID,
-				secret: row.DEVICE_AUTH_SECRET,
-				public: row.DEVICE_AUTH_PUBLIC,
+				secret: JSON.parse(`"${row.DEVICE_AUTH_SECRET}"`),
+				public: JSON.parse(`"${row.DEVICE_AUTH_PUBLIC}"`),
 				deactivated: row.DEVICE_AUTH_DEACTIVATED,
 				created_at: row.CREATED_AT
 			};

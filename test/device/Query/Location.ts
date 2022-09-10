@@ -12,9 +12,9 @@ const path = config.io.path.device.graphql;
 const { hostname, port } = config.io;
 
 const randomLocation = () => ({
-	longitude: faker.address.longitude(),
-	latitude: faker.address.latitude(),
-	accuracy: faker.random.numeric()
+	longitude: Number(faker.address.longitude()),
+	latitude: Number(faker.address.latitude()),
+	accuracy: Number(faker.random.numeric())
 });
 const location = () => util.inspect(randomLocation(), false, null, false);
 const reportLocationQuery = (location) => (gql`query {

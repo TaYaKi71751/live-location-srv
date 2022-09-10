@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import { config } from '../../../Config';
 import { gql } from 'apollo-server-micro';
 import { io } from 'socket.io-client';
@@ -11,9 +12,9 @@ const path = config.io.path.device.graphql;
 const { hostname, port } = config.io;
 
 const randomLocation = () => ({
-	longitude: Math.random() * 127,
-	latitude: Math.random() * 30,
-	accuracy: Math.random() * 100
+	longitude: faker.address.longitude(),
+	latitude: faker.address.latitude(),
+	accuracy: faker.random.numeric()
 });
 const location = () => util.inspect(randomLocation(), false, null, false);
 const reportLocationQuery = (location) => (gql`query {

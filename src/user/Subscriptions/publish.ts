@@ -5,13 +5,13 @@ export async function publish (
 	path:string,
 	triggerName:string,
 	data:any,
-	filter?:((socket, data) => Promise<boolean>|boolean)
-) {
-	let _socket:any = null;
-	const socketEntries = io.of(`${path}`)?.sockets?.entries();
-	while (!(_socket = socketEntries.next()).done) {
-		const [, s] = _socket.value;
-		const f = await (filter || (async (socket, data) => true))(s, data);
-		if (f) { s.emit(triggerName, data); }
+	filter?:((socket, data) => Promise<boolean>)
+	) {
+		io.of(path).sockets.forEach((socket)=>{
+			filter(socket,data)
+			.then((stat)=>{
+				if(stat){socket.emit(triggerName,data)}
+			})
+		})
 	}
-}
+	

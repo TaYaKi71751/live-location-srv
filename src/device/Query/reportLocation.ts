@@ -53,36 +53,11 @@ export async function reportLocation (
 			user: { id: user?.id },
 			device: { id: device?.id },
 			location: rows[0].location
-		}, async (socket) => {
-			let rows:any = null;
-			let errors:any = null;
-			const auth = socket?.handshake?.auth;
-			const _:any = {};
-
-			const $auth$1 = await userAuth(_parent, auth, { getDB });
-			if (
-				(rows = $auth$1?.data?.rows)?.length != 1 ||
-				(errors = $auth$1?.errors)?.length
-			) { return false; }
-			_.user = rows[0]?.user;
-
-			const $selectDevices$1 = await selectDevices(_parent, {
-				user: { id: _?.user?.id },
-				device: (typeof auth?.device?.id != 'undefined' ? { id: auth?.device?.id } : undefined)
-			}, { getDB });
-			if (
-				!(rows = $selectDevices$1?.data?.rows)?.length ||
-				(errors = $selectDevices$1?.errors)?.length
-			) { return false; }
-			if (rows?.filter((row) => (
-				typeof row?.user?.id != 'undefined' &&
-				typeof row?.device?.id != 'undefined' &&
-				`${row?.user?.id}` === `${_?.user?.id}` &&
-				(typeof auth?.device?.id == 'undefined' ||
-				`${row?.device?.id}` === `${auth?.device?.id}`)
-			))?.length) { return true; }
-			return false;
-		}
+		},async (socket,data)=>(
+			typeof socket?.handshake?.auth?.device?.id != 'undefined' && 
+			typeof device?.id != 'undefined' &&
+			`${socket?.handshake?.auth?.device?.id}` === `${device?.id}`
+		)
 	);
 	return location;
 }

@@ -56,19 +56,16 @@ io.of(`${path.user.subscriptions}`).on('connection', async (socket) => {
 
 	const $selectDevices$1 = await selectDevices(undefined, {
 		user: { id: user?.id },
-		device: { deactivated: false }
+		device: { id: socket?.handshake?.auth?.device?.id, deactivated: false }
 	}, { getDB });
 	if (
-		!(rows = $selectDevices$1?.data?.rows)?.length ||
+		(rows = $selectDevices$1?.data?.rows)?.length !== 1 ||
 		(errors = $selectDevices$1?.errors)?.length
 	) { socket.disconnect(errors); return; }
 	if (rows?.filter((row) => (
 		typeof user?.id != 'undefined' &&
-		`${row?.user?.id}` === `${user?.id}` &&
-		(typeof socket?.handshake?.auth?.device?.id == 'undefined' ||
-			(typeof socket?.handshake?.auth?.device?.id != 'undefined' &&
-		`${row?.device.id}` === `${socket?.handshake?.auth?.device?.id}`))
-	))?.length) { } else {
+		`${row?.user?.id}` === `${user?.id}`
+	))?.length) { socket.join(`${rows[0]?.device?.id}`); } else {
 		socket.disconnect();
 	}
 });

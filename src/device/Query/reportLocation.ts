@@ -49,15 +49,12 @@ export async function reportLocation (
 	await publish(
 		io,
 		`${config?.io?.path?.user?.subscriptions}`,
+		`${device?.id}`,
 		'reportLocation', {
 			user: { id: user?.id },
 			device: { id: device?.id },
 			location: rows[0].location
-		},async (socket,data)=>(
-			typeof socket?.handshake?.auth?.device?.id != 'undefined' && 
-			typeof device?.id != 'undefined' &&
-			`${socket?.handshake?.auth?.device?.id}` === `${device?.id}`
-		)
+		}
 	);
 	return location;
 }

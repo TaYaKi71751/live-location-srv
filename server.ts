@@ -37,7 +37,11 @@ paths.forEach((path) => {
 	const connectionEvents = ['connection', 'disconnection'];
 	connectionEvents.forEach((connectionEvent) => {
 		io.of(path).on(connectionEvent, (socket) => {
-			console.log(`[${path}]`, `[${connectionEvent}]`, socket.id);
+			const clientIP = () => (socket.handshake.address);
+			console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${path}]`, `[${connectionEvent}]`, socket.id);
+			socket.onAny((eventName, ...args) => {
+				console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${path}]`, `[${connectionEvent}]`, `[${eventName}]`, socket.id, ...args);
+			});
 		});
 	});
 });

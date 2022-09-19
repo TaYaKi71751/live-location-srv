@@ -22,7 +22,11 @@ const auth = async (fn, input, socket) => {
 	return { rows, errors };
 };
 const httpServer = http.createServer();
-const io = new SocketIO.Server(httpServer);
+const io = new SocketIO.Server(httpServer, {
+	cors: {
+		origin: '*' // TODO EDIT THIS
+	}
+});
 const paths = [
 	`${path.user.subscriptions}`,
 	`${path.user.graphql}`,

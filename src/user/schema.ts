@@ -45,6 +45,7 @@ type Query {
 	register(user:UserAuthInput): RegisterResponse
 	addDevice: AddDeviceResponse
 	deactivateDevice(device:DeviceInput): DeactivateDeviceResponse
+	listDevice: [Device]
 }
 
 `;

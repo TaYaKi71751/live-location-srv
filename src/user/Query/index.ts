@@ -7,4 +7,5 @@ export * from './updateUserAuth';
 export * from './auth';
 export * from './register';
 export * from './addDevice';
+export * from './listDevice';
 export * from './deactivateDevice';

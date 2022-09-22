@@ -1,9 +1,10 @@
-import { register, addDevice, deactivateDevice } from './Query/index';
+import { register, addDevice, listDevice, deactivateDevice } from './Query/index';
 
 export const resolvers = {
 	Query: {
 		register,
 		addDevice,
+		listDevice,
 		deactivateDevice
 	}
 };

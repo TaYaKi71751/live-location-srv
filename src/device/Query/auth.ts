@@ -1,4 +1,5 @@
 import { selectDevices, selectDeviceAuth } from './index';
+import { InvalidInputError } from '../../util/Error';
 export type ID = `${number}`|number;
 type DeviceAuthInput = {
 	id:ID;
@@ -15,43 +16,58 @@ type DeviceAuth = {
 };
 type Device = Omit<Omit<DeviceAuth, 'secret'>, 'public'>;
 
+const oa = Object.assign;
+
 export async function auth (
 	_parent,
 	input:{device:DeviceAuthInput},
 	{ getDB }
 ):Promise<{
-	data?:{rows:Array<{user?:User, device?:Device}>},
-	errors?:Array<Error>
+	data?:{rows:Array<{user?:User, device?:Device}>}
 }> {
-	let errors:any = {};
-	let rows:any = {};
-	let device:any = input?.device;
+	let device:any = null;
 	let user:any = null;
 
-	const $selectDeviceAuth$1 = await selectDeviceAuth(_parent, {
+	switch (true) {
+	case typeof input?.device?.id == 'undefined':
+	case !input?.device?.public?.length:
+		throw InvalidInputError();
+	default: break;
+	}
+
+	const checkOutput = (output) => {
+		switch (true) {
+		case output?.data?.rows?.length !== 1:
+		case !output?.data?.rows?.length:
+		case !!output?.errors?.length:
+			throw output?.errors;
+		default: break;
+		}
+		return output?.data?.rows;
+	};
+
+	const assignRows = (rows?:Array<{user, device}>) => {
+		device = oa({}, device, rows[0]?.device);
+		user = oa({}, user, rows[0]?.user);
+	};
+
+	await selectDeviceAuth(_parent, {
+		device: {
+			id: input?.device?.id,
+			auth: { public: input?.device?.public, deactivated: false }
+		}
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
+
+	await selectDevices(_parent, {
 		device: {
 			id: device?.id,
-			auth: { public: device?.public, deactivated: false }
-		}
-	}, { getDB });
-	if (
-		(rows = $selectDeviceAuth$1?.data?.rows)?.length != 1 ||
-		(errors = $selectDeviceAuth$1?.errors)?.length
-	) { return { errors }; }
-	device = Object.assign({}, rows[0]?.device);
-	user = Object.assign({}, rows[0]?.user);
-
-	const $selectDevices$1 = await selectDevices(_parent, {
-		device: {
-			id: rows[0]?.device?.id,
 			deactivated: false
 		}
-	}, { getDB });
-	if (
-		(rows = $selectDevices$1?.data?.rows)?.length != 1 ||
-			(errors = $selectDevices$1?.errors)?.length
-	) { return { errors }; }
-	device = Object.assign({}, device, rows?.[0]?.device);
-	user = Object.assign({}, user, rows[0]?.user);
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
+
 	return { data: { rows: [{ user, device }] } };
 }

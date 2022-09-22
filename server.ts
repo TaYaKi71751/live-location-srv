@@ -2,31 +2,25 @@ import http from 'http';
 import SocketIO from 'socket.io';
 import { config } from './Config';
 import { getDB } from './src/Data';
-import { auth as userAuth } from './src/user/Query/index';
-import { auth as deviceAuth, selectDevices } from './src/device/Query/index';
+import { auth as userAuth } from './src/user/Query';
+import { selectDevices } from './src/device/Query';
 import { apolloServer as userApolloServer } from './src/user/ApolloServer';
 import { apolloServer as deviceApolloServer } from './src/device/ApolloServer';
+import { isNotValid as isNotValidNumber } from './src/util/Number';
 
 const path = config.io.path;
 const hostname = config.io.hostname;
 const port = config.io.port;
 
-const auth = async (fn, input, socket) => {
-	const $auth$1 = await fn(undefined, input, { getDB });
-	const errors = $auth$1?.errors;
-	const rows = $auth$1?.data?.rows;
-	if (
-		rows?.length != 1 ||
-		errors?.length
-	) { socket.disconnect(true); };
-	return { rows, errors };
-};
 const httpServer = http.createServer();
 const io = new SocketIO.Server(httpServer, {
 	cors: {
 		origin: '*' // TODO EDIT THIS
 	}
 });
+
+const oa = Object.assign;
+
 const paths = [
 	`${path.user.subscriptions}`,
 	`${path.user.graphql}`,
@@ -38,69 +32,81 @@ paths.forEach((path) => {
 	connectionEvents.forEach((connectionEvent) => {
 		io.of(path).on(connectionEvent, (socket) => {
 			const clientIP = () => (socket.handshake.address);
-			console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${path}]`, `[${connectionEvent}]`, socket.id);
+			console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${socket.nsp.name}]`, `[${connectionEvent}]`, socket.id, socket.handshake.auth);
 			socket.onAny((eventName, ...args) => {
-				console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${path}]`, `[${connectionEvent}]`, `[${eventName}]`, socket.id, ...args);
+				console.info(`[${Date.now()}]`, `[${clientIP()}]`, `[${socket.nsp.name}]`, `[${connectionEvent}]`, `[${eventName}]`, socket.id, socket.handshake.auth, ...args);
 			});
 		});
 	});
 });
 
-io.of(`${path.user.subscriptions}`).on('connection', async (socket) => {
-	const _ = socket.handshake.auth;
-	const $auth$1 = await auth(userAuth, {
-		user: {
-			email: _?.user?.email,
-			password: _?.user?.password
-		}
-	}, socket);
-	let rows:any = null;
-	let errors:any = null;
-	if (
-		(rows = $auth$1?.rows)?.length != 1 ||
-		(errors = $auth$1?.errors)?.length
-	) { socket.disconnect(errors); return; }
-	const user = rows[0]?.user;
+const log = {
+	error: (socket:SocketIO.Socket, e:Error) => (console.error(
+		`[${Date.now()}]`, '[error]', `[${socket.handshake.address}]`, `[${socket.nsp.name}]`, socket.id, socket.handshake.auth, e
+	))
+};
 
-	const $selectDevices$1 = await selectDevices(undefined, {
-		user: { id: user?.id },
-		device: { id: socket?.handshake?.auth?.device?.id, deactivated: false }
-	}, { getDB });
-	if (
-		(rows = $selectDevices$1?.data?.rows)?.length !== 1 ||
-		(errors = $selectDevices$1?.errors)?.length
-	) { socket.disconnect(errors); return; }
-	if (rows?.filter((row) => (
-		typeof user?.id != 'undefined' &&
-		`${row?.user?.id}` === `${user?.id}`
-	))?.length) { socket.join(`${rows[0]?.device?.id}`); } else {
-		socket.disconnect();
+io.of(`${path.user.subscriptions}`).on('connection', async (socket) => {
+	let user:any;
+	let device:any;
+	const checkOutput = (output?:{data, errors}) => {
+		switch (true) {
+		case output?.data?.rows?.length !== 1:
+		case !output?.data?.rows?.length:
+		case !!output?.errors?.length:
+			throw output?.errors;
+		default: break;
+		}
+		return output?.data?.rows;
+	};
+	const assignRows = (rows?:Array<{user, device}>) => {
+		user = oa({}, user, rows[0]?.user);
+		device = oa({}, device, rows[0]?.device);
+	};
+	try {
+		await userAuth(undefined, {
+			user: socket?.handshake?.auth?.user
+		}, { getDB })
+			.then(checkOutput)
+			.then(assignRows);
+
+		await selectDevices(undefined, {
+			user: { id: user?.id },
+			device: { id: `${socket?.handshake?.auth?.device?.id}`, deactivated: false }
+		}, { getDB })
+			.then(checkOutput)
+			.then(assignRows);
+	} catch (e) {
+		log.error(socket, e);
+		socket.disconnect(true);
+	}
+	switch (true) {
+	case isNotValidNumber(user?.id):
+	case isNotValidNumber(device?.id):
+		socket.disconnect(true); return;
+	default: socket.join(`${device?.id}`);
 	}
 });
 
 io.of(`${path.user.graphql}`).on('connection', async (socket) => {
-	socket.on('query', async ({ query }) => {
-		const res = await userApolloServer.executeOperation({ query }, { io, socket, path: path.user.graphql });
-		socket.emit('response', res);
+	socket.on('query', async ({ query }:{query:string}) => {
+		try {
+			const res = await userApolloServer.executeOperation({ query }, { io, socket, path: socket.nsp.name });
+			socket.emit('response', res);
+		} catch (e) {
+			log.error(socket, e);
+		}
 	});
 });
 
 io.of(`${path.device.graphql}`).on('connection', async (socket) => {
-	await auth(deviceAuth, {
-		device: {
-			id: socket?.handshake?.auth?.device?.id,
-			public: socket?.handshake?.auth?.device?.public
-		}
-	}, socket);
 	socket.on('query', async ({ query }:{query:string}) => {
-		await auth(deviceAuth, {
-			device: {
-				id: socket?.handshake?.auth?.device?.id,
-				public: socket?.handshake?.auth?.device?.public
-			}
-		}, socket);
-		const res = await deviceApolloServer.executeOperation({ query }, { io, socket, path: path.device.graphql });
-		socket.emit('response', res);
+		try {
+			const res = await deviceApolloServer.executeOperation({ query }, { io, socket, path: socket.nsp.name });
+			socket.emit('response', res);
+		} catch (e) {
+			log.error(socket, e);
+		}
 	});
 });
 

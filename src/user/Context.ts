@@ -1,7 +1,8 @@
 import SocketIO from 'socket.io';
 import { auth as userAuth } from './Query/index';
-import { config } from '../../Config';
 import { getDB } from '../Data';
+import { AuthorizationRequiredError } from '../util/Error';
+import { isNotValid as isNotValidNumber } from '../util/Number';
 
 type ID = `${number}`|number;
 type UserAuthInput = {
@@ -14,7 +15,8 @@ type DeviceAuthInput = {
 type AuthInput = {
 	user?:UserAuthInput;
 	device?:DeviceAuthInput;
-}
+};
+const oa = Object.assign;
 
 export async function context (incoming:{
 	io:SocketIO.Server
@@ -23,36 +25,42 @@ export async function context (incoming:{
 }) {
 	const io = incoming?.io;
 	const socket = incoming?.socket;
-	const authInput:any = socket?.handshake?.auth;
-
-	let rows:any = null;
-	let errors:any = null;
+	const authInput:undefined|null|AuthInput = socket?.handshake?.auth;
 
 	let user:any = null;
 	let device:any = null;
-	let $auth$1:any = null;
+	const checkOutput = (output?:{data, errors}) => {
+		switch (true) {
+		case output?.data?.rows?.length != 1:
+		case !output?.data?.rows?.length:
+		case !!output?.errors?.length:
+			throw output?.errors;
+		default: break;
+		}
+		return output?.data?.rows;
+	};
+	const assignRows = (rows?:Array<{user}>) => {
+		user = oa({}, user, rows[0]?.user);
+		device = oa({}, authInput?.device, device);
+	};
 	if (authInput?.user) {
-		$auth$1 = await userAuth(undefined, { user: authInput?.user }, { getDB });
-		rows = $auth$1?.data?.rows;
-		errors = $auth$1?.errors;
-	}
-	switch (incoming.path) {
-	case `${config.io.path.user.subscriptions}`:
-		if (
-			!rows?.length ||
-			errors?.length
-		) { } else {
-			socket.disconnect(true);
+		try {
+			await userAuth(undefined, { user: authInput?.user }, { getDB })
+				.then(checkOutput)
+				.then(assignRows)
+				.then(() => {
+					switch (true) {
+					case isNotValidNumber(user?.id):
+					case isNotValidNumber(device?.id):
+						throw AuthorizationRequiredError();
+					default: break;
+					}
+				});
+		} catch (e) {
 			return { getDB };
-		} break;
-	case `${config.io.path.user.graphql}`:break;
-	default: break;
+		}
 	}
 
-	if (rows?.length) {
-		user = rows[0]?.user;
-		device = { id: authInput?.device?.id };
-	}
 	return {
 		getDB,
 		user,

@@ -1,7 +1,7 @@
 import { insertLocation, selectLocations } from '../../location/Query/index';
-import { selectDevices } from '../../device/Query/index';
-import { auth as userAuth } from '../../user/Query/index';
-import { ValidationError } from 'apollo-server-micro';
+import { AuthorizationRequiredError, InvalidInputError } from '../../util/Error';
+import { isNotValid as isNotValidNumber } from '../../util/Number';
+
 import { publish } from '../../user/Subscriptions';
 import { config } from '../../../Config';
 
@@ -23,29 +23,43 @@ export async function reportLocation (
 	_parent,
 	input:{location:LocationInput},
 	{ getDB, user, device, io }
-):Promise<{
-	device:{id:ID}, location:Location,
-}> {
+):Promise<Location> {
+	switch (true) {
+	case isNotValidNumber(user?.id):
+	case isNotValidNumber(device?.id):
+		throw AuthorizationRequiredError();
+	case isNotValidNumber(input?.location?.latitude):
+	case isNotValidNumber(input?.location?.longitude):
+	case isNotValidNumber(input?.location?.accuracy):
+		throw InvalidInputError();
+	default: break;
+	}
 	let location:any = input?.location;
-	let rows:any = null;
-	let errors:any = null;
+	const checkOutput = (output?:{data, errors}) => {
+		switch (true) {
+		case output?.data?.rows?.length !== 1:
+		case !output?.data?.rows?.length:
+		case !!output?.errors?.length:
+			throw output?.errors;
+		default: break;
+		}
+		return output?.data?.rows;
+	};
+	const assignRows = (rows:Array<{location}>) => {
+		location = Object.assign({}, location, rows[0]?.location);
+	};
 
-	const $insertLocation$1 = await insertLocation(_parent, {
+	await insertLocation(_parent, {
 		device: { id: device?.id },
 		location
-	}, { getDB });
-	if (
-		(rows = $insertLocation$1?.data?.rows)?.length != 1 ||
-		(errors = $insertLocation$1?.errors)?.length
-	) { return; }
-	location = Object.assign(location, rows[0]?.location);
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
 
-	const $selectLocations$1 = await selectLocations(_parent, { device: { id: device?.id }, location }, { getDB });
-	if (
-		(rows = $selectLocations$1?.data?.rows)?.length != 1 ||
-		(errors = $selectLocations$1?.errors)?.length
-	) { return; }
-	location = Object.assign(location, rows[0]?.location);
+	await selectLocations(_parent, { device: { id: device?.id }, location }, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
+
 	await publish(
 		io,
 		`${config?.io?.path?.user?.subscriptions}`,
@@ -53,7 +67,7 @@ export async function reportLocation (
 		'reportLocation', {
 			user: { id: user?.id },
 			device: { id: device?.id },
-			location: rows[0].location
+			location
 		}
 	);
 	return location;

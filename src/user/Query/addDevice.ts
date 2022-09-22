@@ -1,4 +1,6 @@
 import { selectDevices, selectDeviceAuth, insertDevice, insertDeviceAuth } from '../../device/Query/index';
+import { AuthorizationRequiredError } from '../../util/Error';
+import { isNotValid as isNotValidNumber } from '../../util/Number';
 
 type ID = `${number}`|number;
 type DeviceAuth = {
@@ -10,62 +12,69 @@ type DeviceAuth = {
 };
 type Device = Omit<Omit<DeviceAuth, 'secret'>, 'public'>&{auth?:Omit<DeviceAuth, 'secret'>};
 
-type User = Device&{email?:string}
+type User = Device&{email?:string};
+
+const oa = Object.assign;
 
 export async function addDevice (
 	_parent,
 	input,
 	{ getDB, user }
-):Promise<any & {
-	errors?:Array<Error>,
+):Promise<{
 	user?:User,
 	device?:Device
 }> {
-	if (typeof user?.id == 'undefined') { return; }
-	let rows:any = null;
-	let errors:any = null;
+	switch (true) {
+	case isNotValidNumber(user?.id):
+		throw AuthorizationRequiredError();
+	}
 	let device:any = {};
 
-	const $insertDevice$1 = await insertDevice(_parent, {
+	const checkOutput = (output) => {
+		switch (true) {
+		case output?.data?.rows?.length !== 1:
+		case !output?.data?.rows?.length:
+		case !!output?.errors?.length:
+			throw output?.errors;
+		default: break;
+		}
+		return output?.data?.rows;
+	};
+
+	const assignRows = (rows?:Array<{device}>) => {
+		const _ = Object.assign({}, device?.auth, rows[0]?.device?.auth);
+		device = oa({}, device, rows[0]?.device);
+		if (rows[0]?.device?.auth) {
+			device.auth = _;
+		}
+	};
+
+	await insertDevice(_parent, {
 		user: {
 			id: user?.id
 		}
-	}, { getDB });
-	if (
-		(rows = $insertDevice$1?.data?.rows)?.length != 1 ||
-		(errors = $insertDevice$1?.errors)?.length
-	) { return { errors }; }
-	device = Object.assign(device, rows[0]?.device);
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
 
-	const $selectDevice$1 = await selectDevices(_parent, {
+	await selectDevices(_parent, {
 		user: { id: user?.id },
 		device
-	}, { getDB });
-	if (
-		(rows = $selectDevice$1?.data?.rows)?.length != 1 ||
-		(errors = $selectDevice$1?.errors)?.length
-	) { return { errors }; }
-	device = Object.assign(device, rows[0]?.device);
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
 
-	const $insertDeviceAuth$1 = await insertDeviceAuth(_parent, {
+	await insertDeviceAuth(_parent, {
 		device: { id: device?.id }
-	}, { getDB });
-	if (
-		(rows = $insertDeviceAuth$1?.data?.rows)?.length != 1 ||
-		(errors = $insertDeviceAuth$1?.errors)?.length
-	) { return { errors }; }
-	device.auth = Object.assign({},device.auth, rows[0]?.device?.auth);
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
 
-	const $selectDeviceAuth$1 = await selectDeviceAuth(_parent, {
+	await selectDeviceAuth(_parent, {
 		device
-	}, { getDB });
-	if (
-		(rows = $selectDeviceAuth$1?.data?.rows)?.length != 1 ||
-		(errors = $selectDeviceAuth$1?.errors)?.length
-	) { return { errors }; }
-	device.auth = Object.assign({},device.auth,rows[0]?.device?.auth);
-
-	delete device?.auth?.secret;
+	}, { getDB })
+		.then(checkOutput)
+		.then(assignRows);
 
 	return { user: { id: user?.id }, device };
 }

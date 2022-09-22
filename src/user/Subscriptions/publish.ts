@@ -9,4 +9,3 @@ export async function publish (
 ) {
 	io.of(path).to(room).emit(triggerName, data);
 }
-
